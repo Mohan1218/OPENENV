@@ -1,0 +1,131 @@
+id: real-world-tasks-env
+name: Real-World Task Environment
+description: |
+  A comprehensive OpenEnv environment featuring three real-world tasks:
+  - Email Classification (Easy)
+  - Code Review (Medium)
+  - Customer Support Routing (Hard)
+  
+  Each task spans three difficulty levels and includes deterministic graders.
+
+version: "1.0.0"
+tags:
+  - real-world
+  - multi-task
+  - classification
+  - routing
+  - openenv
+
+tasks:
+  - id: email_classification
+    name: Email Classification
+    description: Classify emails as important, spam, or promotional
+    difficulty: easy
+    max_steps: 6
+    
+  - id: code_review
+    name: Code Review
+    description: Identify security, style, logic, and performance issues in code
+    difficulty: medium
+    max_steps: 4
+    
+  - id: support_routing
+    name: Customer Support Routing
+    description: Route support tickets to appropriate departments with correct priority
+    difficulty: hard
+    max_steps: 4
+
+observation_spaces:
+  email_classification:
+    email_subject: string
+    email_body: string
+    sender_domain: string
+    has_links: boolean
+    has_attachments: boolean
+    word_count: integer
+    step: integer
+    episode_length: integer
+    
+  code_review:
+    code_snippet: string
+    language: string
+    context: string
+    function_name: string
+    lines_of_code: integer
+    step: integer
+    episode_length: integer
+    
+  support_routing:
+    ticket_subject: string
+    ticket_description: string
+    customer_type: ["free", "standard", "premium"]
+    sentiment: ["positive", "neutral", "frustrated", "angry"]
+    issue_category: ["billing", "technical", "general", "mixed"]
+    previous_interactions: integer
+    account_age_days: integer
+    is_vip: boolean
+    step: integer
+    episode_length: integer
+
+action_spaces:
+  email_classification:
+    classification: ["important", "spam", "promotional"]
+    confidence: "float[0.0-1.0]"
+    
+  code_review:
+    issue_types: ["security", "style", "logic", "performance", "none"]
+    severity: ["critical", "major", "minor", "none"]
+    suggested_fix: "string (optional)"
+    priority: ["high", "medium", "low"]
+    
+  support_routing:
+    department: ["billing", "tech_support", "general_support", "escalation"]
+    priority: ["low", "medium", "high", "urgent"]
+    response_type: ["auto_reply", "human_review", "escalate"]
+    tone: ["empathetic", "formal", "urgent", "casual"]
+    estimated_resolution_time_hours: "integer[1-72]"
+
+reward_structure:
+  range: [-1.0, 1.0]
+  frequency: per_step
+  description: |
+    Email Classification: 60% classification accuracy + 40% confidence calibration
+    Code Review: 50% issue detection + 50% severity accuracy
+    Support Routing: 35% department + 25% priority + 20% response_type + 20% tone
+
+end_condition:
+  type: max_steps_or_episode_completion
+  max_steps_email: 6
+  max_steps_code: 4
+  max_steps_support: 4
+
+metadata:
+  total_tasks: 3
+  total_difficulty_levels: 3
+  total_scenarios: 27
+  episodes_per_difficulty: 3
+  training_supported: true
+  evaluation_supported: true
+  
+grading:
+  type: deterministic
+  reproducible: true
+  min_score: 0.0
+  max_score: 1.0
+  
+deployment:
+  framework: fastapi
+  port: 7860
+  containerized: true
+  huggingface_spaces: true
+  
+api_endpoints:
+  - GET /
+  - GET /tasks
+  - POST /init
+  - GET /reset
+  - GET /state
+  - POST /step
+  - POST /grader
+  - GET /baseline
+

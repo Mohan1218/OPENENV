@@ -1,0 +1,13 @@
+def get_tasks():
+    return {
+        "tasks": [
+            {"name": "easy", "description": "Simple tickets"},
+            {"name": "medium", "description": "Mixed tickets"},
+            {"name": "hard", "description": "Complex conversational tickets"}
+        ],
+        "action_schema": {
+            "department": ["billing", "tech", "support"],
+            "priority": ["low", "medium", "high"],
+            "response_type": ["auto_reply", "escalate", "resolve"]
+        }
+    }
