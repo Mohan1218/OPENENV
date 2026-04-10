@@ -1,337 +1,167 @@
 """
-OpenEnv Benchmark Inference Script
-Evaluates agent performance on OpenEnv tasks using OpenAI API
-Uses API_BASE_URL, MODEL_NAME, and HF_TOKEN environment variables
-Outputs structured logs in [START], [STEP], [END] format
+OpenEnv Inference Script with OpenAI Integration
+Uses OpenAI API to generate agent actions
 """
 import os
+import requests
 import json
 import sys
-from typing import Dict, Any, Optional
-from datetime import datetime
+from openai import OpenAI
 
-# Initialize OpenAI client with proper environment variables
-def get_openai_client():
-    """Initialize OpenAI client with API_BASE_URL, MODEL_NAME, and HF_TOKEN"""
-    try:
-        from openai import OpenAI
-        
-        api_base = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-        api_key = os.getenv("HF_TOKEN") or os.getenv("OPENAI_API_KEY")
-        
-        if not api_key:
-            print("[ERROR] HF_TOKEN or OPENAI_API_KEY environment variable not set", file=sys.stderr)
-            return None
-        
-        client = OpenAI(
-            api_key=api_key,
-            base_url=api_base if api_base != "https://api.openai.com/v1" else None
-        )
-        return client
-    except ImportError:
-        print("[ERROR] OpenAI package not installed", file=sys.stderr)
-        return None
-    except Exception as e:
-        print(f"[ERROR] Failed to initialize OpenAI client: {e}", file=sys.stderr)
-        return None
+# =========================
+# CONFIG
+# =========================
+API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:7860")
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
+API_KEY = os.getenv("OPENAI_API_KEY")
 
+# Initialize OpenAI client
+if not API_KEY:
+    print("[ERROR] OPENAI_API_KEY not set", file=sys.stderr)
+    sys.exit(1)
 
-def get_model_name() -> str:
-    """Get model name from environment or use default"""
-    return os.getenv("MODEL_NAME", "gpt-4o-mini")
+client = OpenAI(api_key=API_KEY)
 
-
-def _parse_openai_json(content: str) -> Dict[str, Any]:
-    """Parse JSON from OpenAI response with error handling"""
-    try:
-        return json.loads(content)
-    except Exception:
-        start = content.find("{")
-        end = content.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            try:
-                return json.loads(content[start:end + 1])
-            except Exception:
-                return {}
-        return {}
-
-
-def get_openai_action(client, task_id: str, obs: Dict[str, Any]) -> Dict[str, Any]:
-    """Generate action using OpenAI API with deterministic decoding"""
-    model_name = get_model_name()
+# =========================
+# GET ACTION FROM LLM
+# =========================
+def get_action(obs):
+    """Get action from OpenAI LLM"""
     
-    if task_id == "email_classification":
-        schema_hint = (
-            '{"classification":"important|spam|promotional","confidence":0.0}'
-        )
-    elif task_id == "code_review":
-        schema_hint = (
-            '{"issue_types":["security|style|logic|performance|none"],'
-            '"severity":"critical|major|minor|none","priority":"high|medium|low"}'
-        )
+    # Determine task from observation
+    task_type = "support_routing"
+    if "email_subject" in obs:
+        task_type = "email_classification"
+    elif "code_snippet" in obs:
+        task_type = "code_review"
+    
+    # Build task-specific prompt
+    if task_type == "email_classification":
+        prompt = f"""You are an email classifier.
+Given this email:
+Subject: {obs.get('email_subject', '')}
+Body: {obs.get('email_body', '')}
+
+Classify it as: important, spam, or promotional
+Return ONLY valid JSON:
+{{"classification": "important|spam|promotional", "confidence": 0.0}}"""
+    
+    elif task_type == "code_review":
+        prompt = f"""You are a code reviewer.
+Review this code:
+{obs.get('code_snippet', '')}
+
+Identify issues: security, style, logic, performance, or none
+Return ONLY valid JSON:
+{{"issue_types": ["security|style|logic|performance|none"], "severity": "critical|major|minor|none", "priority": "high|medium|low"}}"""
+    
     else:  # support_routing
-        schema_hint = (
-            '{"department":"billing|tech_support|general_support|escalation",'
-            '"priority":"low|medium|high|urgent","response_type":"auto_reply|human_review|escalate",'
-            '"tone":"empathetic|formal|urgent|casual","estimated_resolution_time_hours":1}'
-        )
-    
-    prompt = (
-        "You are an environment agent. Return only valid JSON with no markdown. "
-        f"Task: {task_id}. Observation: {json.dumps(obs)}. "
-        f"Output schema example: {schema_hint}."
-    )
+        prompt = f"""You are a support routing agent.
+Route this ticket:
+Description: {obs.get('ticket_description', '')}
+Customer: {obs.get('customer_type', '')}
+Sentiment: {obs.get('sentiment', '')}
+
+Return ONLY valid JSON:
+{{"department": "billing|tech_support|general_support|escalation", "priority": "low|medium|high|urgent", "response_type": "auto_reply|human_review|escalate", "tone": "empathetic|formal|urgent|casual"}}"""
     
     try:
         response = client.chat.completions.create(
-            model=model_name,
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": prompt}],
             temperature=0,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": "Return only compact JSON."},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=500,
-            timeout=30
+            max_tokens=500
         )
-        content = response.choices[0].message.content or "{}"
-        return _parse_openai_json(content)
+        
+        text = response.choices[0].message.content
+        return json.loads(text)
     except Exception as e:
-        print(f"[WARNING] OpenAI API call failed: {e}", file=sys.stderr)
-        return {}
-
-
-class RuleBasedBaseline:
-    """Rule-based fallback baseline for each task"""
-    
-    @staticmethod
-    def email_classification(obs: Dict[str, Any]) -> Dict[str, Any]:
-        """Rule-based email classification"""
-        email_body = obs.get("email_body", "").lower()
-        subject = obs.get("email_subject", "").lower()
-        
-        promo_keywords = ["sale", "discount", "offer", "free", "save", "limited"]
-        spam_keywords = ["click here", "claim", "prize", "won", "verify"]
-        
-        for keyword in spam_keywords:
-            if keyword in email_body or keyword in subject:
-                return {"classification": "spam", "confidence": 0.8}
-        
-        for keyword in promo_keywords:
-            if keyword in email_body or keyword in subject:
-                return {"classification": "promotional", "confidence": 0.7}
-        
-        return {"classification": "important", "confidence": 0.6}
-    
-    @staticmethod
-    def code_review(obs: Dict[str, Any]) -> Dict[str, Any]:
-        """Rule-based code review"""
-        code = obs.get("code_snippet", "").lower()
-        
-        issues = []
-        severity = "none"
-        
-        if "eval(" in code or "exec(" in code or "password" in code:
-            issues.append("security")
-            severity = "critical"
-        elif "for " in code and code.count("for ") > 1:
-            issues.append("performance")
-            severity = "major"
-        
-        return {
-            "issue_types": issues if issues else ["none"],
-            "severity": severity,
-            "priority": "high" if severity == "critical" else "medium"
-        }
-    
-    @staticmethod
-    def support_routing(obs: Dict[str, Any]) -> Dict[str, Any]:
-        """Rule-based support routing"""
-        description = obs.get("ticket_description", "").lower()
-        sentiment = obs.get("sentiment", "neutral")
-        is_vip = obs.get("is_vip", False)
-        
-        if any(x in description for x in ["refund", "bill", "charge"]):
-            department = "billing"
-        elif any(x in description for x in ["error", "crash", "slow"]):
-            department = "tech_support"
+        print(f"[WARNING] OpenAI call failed: {e}", file=sys.stderr)
+        # Fallback action
+        if task_type == "email_classification":
+            return {"classification": "important", "confidence": 0.5}
+        elif task_type == "code_review":
+            return {"issue_types": ["none"], "severity": "none", "priority": "low"}
         else:
-            department = "general_support"
-        
-        if is_vip or sentiment == "angry":
-            priority = "urgent"
-        else:
-            priority = "medium"
-        
-        return {
-            "department": department,
-            "priority": priority,
-            "response_type": "escalate" if is_vip else "human_review",
-            "tone": "empathetic" if sentiment == "angry" else "casual",
-            "estimated_resolution_time_hours": 2 if priority == "urgent" else 24
-        }
+            return {
+                "department": "general_support",
+                "priority": "medium",
+                "response_type": "human_review",
+                "tone": "formal"
+            }
 
-
-def run_task_inference(task_id: str, difficulty: str, num_episodes: int = 1) -> Dict[str, Any]:
-    """
-    Run inference on a single task with structured logging
+# =========================
+# MAIN LOOP
+# =========================
+def run_inference(task_id="support_routing", difficulty="easy", num_steps=10):
+    """Run inference with OpenAI agent"""
     
-    [START] task_id=..., difficulty=..., num_episodes=...
-    [STEP] episode=..., step=..., action=..., reward=...
-    [END] task_id=..., difficulty=..., average_reward=..., average_reward_per_step=...
-    """
-    from env.environment import create_env
-    
-    # Print START marker with exact format
     print(f"[START] task={task_id} difficulty={difficulty}")
     sys.stdout.flush()
     
-    client = get_openai_client()
-    using_openai = client is not None
-    
-    results = {
-        "task_id": task_id,
-        "difficulty": difficulty,
-        "num_episodes": num_episodes,
-        "policy": "openai" if using_openai else "rule_based",
-        "total_reward": 0.0,
-        "total_steps": 0,
-        "episodes": []
-    }
-    
-    for episode_num in range(num_episodes):
-        env = create_env(task_id, difficulty)
-        obs = env.reset()
-        episode_reward = 0.0
-        steps = 0
+    try:
+        # Reset environment
+        reset_response = requests.post(f"{API_BASE_URL}/reset")
+        obs = reset_response.json()
         
-        while obs:
-            # Prevent infinite loops - max 10 steps per episode
-            if steps > 10:
-                break
-                
-            # Get action
-            if using_openai:
-                try:
-                    action = get_openai_action(client, task_id, obs)
-                except Exception:
-                    using_openai = False
-                    action = {}
-            
-            if not using_openai or not action:
-                if task_id == "email_classification":
-                    action = RuleBasedBaseline.email_classification(obs)
-                elif task_id == "code_review":
-                    action = RuleBasedBaseline.code_review(obs)
-                elif task_id == "support_routing":
-                    action = RuleBasedBaseline.support_routing(obs)
-                else:
-                    break
-            
-            # Take step
-            try:
-                next_obs, reward, done, info = env.step(action)
-                episode_reward += reward
-                steps += 1
-                
-                # Print STEP marker with exact format
-                action_str = json.dumps(action).replace('"', "'")[:60]
-                print(f"[STEP] step={steps} reward={reward:.3f} action={action_str}")
-                sys.stdout.flush()
-                
-                obs = next_obs
-                
-                if done:
-                    break
-            except Exception as e:
-                print(f"[ERROR] Step failed: {e}", file=sys.stderr)
-                break
+        total_score = 0.0
+        step_num = 0
         
-        episode_data = {
-            "episode": episode_num + 1,
-            "total_reward": episode_reward,
-            "total_steps": steps
-        }
-        results["episodes"].append(episode_data)
-        results["total_reward"] += episode_reward
-        results["total_steps"] += steps
-    
-    # Calculate averages
-    num_total_episodes = num_episodes
-    avg_reward = results["total_reward"] / num_total_episodes if num_total_episodes > 0 else 0.0
-    avg_reward_per_step = results["total_reward"] / results["total_steps"] if results["total_steps"] > 0 else 0.0
-    
-    results["average_reward"] = avg_reward
-    results["average_reward_per_step"] = avg_reward_per_step
-    
-    # Print END marker with exact format (total_score = total_reward for this episode set)
-    total_score = results["total_reward"]
-    print(f"[END] total_score={total_score:.3f}")
-    sys.stdout.flush()
-    
-    return results
-
-
-def run_all_benchmarks(num_episodes: int = 1) -> Dict[str, Any]:
-    """Run inference on all tasks and difficulties"""
-    print(f"[INFO] Starting OpenEnv benchmark evaluation", file=sys.stderr)
-    print(f"[INFO] Using model: {get_model_name()}", file=sys.stderr)
-    print(f"[INFO] Using API base: {os.getenv('API_BASE_URL', 'https://api.openai.com/v1')}", file=sys.stderr)
-    print()
-    
-    all_results = {
-        "timestamp": datetime.now().isoformat(),
-        "model": get_model_name(),
-        "num_episodes": num_episodes,
-        "tasks": {}
-    }
-    
-    # Run all task-difficulty combinations
-    tasks = [
-        "email_classification",
-        "code_review",
-        "support_routing"
-    ]
-    
-    difficulties = ["easy", "medium", "hard"]
-    
-    for task_id in tasks:
-        for difficulty in difficulties:
-            key = f"{task_id}_{difficulty}"
-            result = run_task_inference(task_id, difficulty, num_episodes)
-            all_results["tasks"][key] = result
-            print()
-    
-    # Summary statistics
-    total_reward = sum(r["total_reward"] for r in all_results["tasks"].values())
-    total_episodes = sum(r["num_episodes"] for r in all_results["tasks"].values())
-    total_steps = sum(r["total_steps"] for r in all_results["tasks"].values())
-    
-    avg_reward_per_step = total_reward / total_steps if total_steps > 0 else 0.0
-    
-    all_results["summary"] = {
-        "total_episodes": total_episodes,
-        "total_steps": total_steps,
-        "total_reward": total_reward,
-        "average_reward_per_step": avg_reward_per_step
-    }
-    
-    print(f"[INFO] Benchmark complete. Overall average reward/step: {avg_reward_per_step:.3f}", file=sys.stderr)
-    
-    return all_results
+        while step_num < num_steps:
+            step_num += 1
+            
+            # Get action from OpenAI
+            action = get_action(obs)
+            
+            # Take step in environment
+            step_response = requests.post(
+                f"{API_BASE_URL}/step",
+                json={
+                    "task_id": task_id,
+                    "difficulty": difficulty,
+                    "data": action
+                }
+            )
+            
+            data = step_response.json()
+            
+            reward = data.get("reward", 0.0)
+            done = data.get("done", False)
+            
+            total_score += reward
+            
+            # Log step
+            action_str = json.dumps(action).replace('"', "'")[:60]
+            print(f"[STEP] step={step_num} reward={reward:.3f} action={action_str}")
+            sys.stdout.flush()
+            
+            if done:
+                break
+            
+            obs = data.get("next_state", {})
+        
+        # Final log
+        print(f"[END] total_score={total_score:.3f}")
+        sys.stdout.flush()
+        
+        return total_score
+        
+    except Exception as e:
+        print(f"[ERROR] Inference failed: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        return 0.0
 
 
 if __name__ == "__main__":
     try:
-        num_episodes = int(os.getenv("NUM_EPISODES", "1"))
-        results = run_all_benchmarks(num_episodes=num_episodes)
-        
-        # Output final results as JSON to stdout
-        print("\n[JSON_RESULTS]")
-        print(json.dumps(results, indent=2))
+        # Run single episode
+        score = run_inference(
+            task_id=os.getenv("TASK_ID", "support_routing"),
+            difficulty=os.getenv("DIFFICULTY", "easy"),
+            num_steps=int(os.getenv("NUM_STEPS", "10"))
+        )
         sys.exit(0)
     except Exception as e:
-        print(f"[ERROR] Inference script failed: {e}", file=sys.stderr)
-        import traceback
-        traceback.print_exc()
+        print(f"[ERROR] Script failed: {e}", file=sys.stderr)
         sys.exit(1)
