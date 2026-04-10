@@ -76,10 +76,15 @@ class BaseTaskEnv:
                 "task_id": self.task_id,
                 "total_score": self.total_score,
                 "reason": "episode_complete",
+                "history_length": len(self.history),
+                "difficulty_adapted": False,
+                "risk_level": "unknown",
+                "time_decay_applied": False,
             }
 
         if not isinstance(action, dict):
             self.index += 1
+            self.step_count += 1
             done = self.index >= len(self.data)
             reward = 0.0
             self.total_score += reward
@@ -94,6 +99,10 @@ class BaseTaskEnv:
                     "score": reward,
                     "reasoning": "Invalid action type; expected object/dict",
                 },
+                "history_length": len(self.history),
+                "difficulty_adapted": False,
+                "risk_level": "unknown",
+                "time_decay_applied": self.step_count > 0,
             }
 
         current = self.data[self.index]
