@@ -72,6 +72,18 @@ class BaseTaskEnv:
 
     def step(self, action: Dict[str, Any]) -> Tuple[Dict[str, Any], float, bool, Dict[str, Any]]:
         try:
+            # Prevent slow runtime - max 10 steps per episode
+            if self.step_count > 10:
+                return {}, 0.0, True, {
+                    "task_id": self.task_id,
+                    "total_score": self.total_score,
+                    "reason": "max_steps_exceeded",
+                    "history_length": len(self.history),
+                    "difficulty_adapted": False,
+                    "risk_level": "unknown",
+                    "time_decay_applied": False,
+                }
+            
             if self.index >= len(self.data):
                 return {}, 0.0, True, {
                     "task_id": self.task_id,

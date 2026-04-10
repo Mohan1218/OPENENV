@@ -182,8 +182,8 @@ def run_task_inference(task_id: str, difficulty: str, num_episodes: int = 1) -> 
     """
     from env.environment import create_env
     
-    # Print START marker
-    print(f"[START] task_id={task_id}, difficulty={difficulty}, num_episodes={num_episodes}")
+    # Print START marker with exact format
+    print(f"[START] task={task_id} difficulty={difficulty}")
     sys.stdout.flush()
     
     client = get_openai_client()
@@ -206,6 +206,10 @@ def run_task_inference(task_id: str, difficulty: str, num_episodes: int = 1) -> 
         steps = 0
         
         while obs:
+            # Prevent infinite loops - max 10 steps per episode
+            if steps > 10:
+                break
+                
             # Get action
             if using_openai:
                 try:
@@ -230,9 +234,9 @@ def run_task_inference(task_id: str, difficulty: str, num_episodes: int = 1) -> 
                 episode_reward += reward
                 steps += 1
                 
-                # Print STEP marker
+                # Print STEP marker with exact format
                 action_str = json.dumps(action).replace('"', "'")[:60]
-                print(f"[STEP] episode={episode_num + 1}, step={steps}, reward={reward:.3f}, action={action_str}")
+                print(f"[STEP] step={steps} reward={reward:.3f} action={action_str}")
                 sys.stdout.flush()
                 
                 obs = next_obs
@@ -260,8 +264,9 @@ def run_task_inference(task_id: str, difficulty: str, num_episodes: int = 1) -> 
     results["average_reward"] = avg_reward
     results["average_reward_per_step"] = avg_reward_per_step
     
-    # Print END marker
-    print(f"[END] task_id={task_id}, difficulty={difficulty}, average_reward={avg_reward:.3f}, average_reward_per_step={avg_reward_per_step:.3f}")
+    # Print END marker with exact format (total_score = total_reward for this episode set)
+    total_score = results["total_reward"]
+    print(f"[END] total_score={total_score:.3f}")
     sys.stdout.flush()
     
     return results
