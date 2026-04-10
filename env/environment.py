@@ -2,17 +2,17 @@ from enum import Enum
 from typing import Any, Dict, List, Tuple
 
 from env.grader import compute_score
-from env.task_data_code_review import (
+from env.task_data_code_review_upgraded import (
     CODE_REVIEW_EASY_DATA,
     CODE_REVIEW_HARD_DATA,
     CODE_REVIEW_MEDIUM_DATA,
 )
-from env.task_data_email import (
+from env.task_data_email_upgraded import (
     EMAIL_CLASSIFICATION_EASY_DATA,
     EMAIL_CLASSIFICATION_HARD_DATA,
     EMAIL_CLASSIFICATION_MEDIUM_DATA,
 )
-from env.task_data_support import (
+from env.task_data_support_upgraded import (
     SUPPORT_ROUTING_EASY_DATA,
     SUPPORT_ROUTING_HARD_DATA,
     SUPPORT_ROUTING_MEDIUM_DATA,
@@ -100,6 +100,10 @@ class BaseTaskEnv:
         if self.task_id == "support_routing":
             grading_payload["sentiment"] = current.get("sentiment")
             grading_payload["customer_type"] = current.get("customer_type")
+            grading_payload["is_vip"] = current.get("is_vip", False)
+            grading_payload["urgency"] = current.get("urgency", "normal")
+        elif self.task_id == "email_classification":
+            grading_payload["confidence_hint"] = current.get("confidence_hint")
 
         grade = compute_score(grading_payload)
         base_reward = float(grade.get("score", 0.0))
@@ -125,6 +129,14 @@ class BaseTaskEnv:
         done = self.index >= len(self.data)
         next_obs = {} if done else self.state()
 
+        # Build detailed explanation breakdown
+        explanation_breakdown = {
+            "score_components": grade.get("components", {}),
+            "penalties_applied": grade.get("penalties", []),
+            "bonuses_applied": grade.get("bonuses", []),
+            "detailed_reasoning": grade.get("reasoning", "")
+        }
+
         return next_obs, reward, done, {
             "task_id": self.task_id,
             "difficulty": self.difficulty.value,
@@ -132,6 +144,7 @@ class BaseTaskEnv:
             "episode_length": len(self.data),
             "total_score": self.total_score,
             "grade": grade,
+            "explanation_breakdown": explanation_breakdown,
         }
 
 

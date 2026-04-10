@@ -212,6 +212,77 @@ python3 inference.py
 
 The baseline policy automatically falls back to rule-based heuristics if the LLM is unavailable.
 
+## Reward Design
+
+Each task implements a **sophisticated multi-component reward function** with base scores, penalties for errors, and bonuses for excellent performance.
+
+### Email Classification Reward Structure
+
+**Base Scoring** (60% weight):
+- Correct classification: +0.6
+- Incorrect classification: -0.25
+
+**Confidence Calibration** (40% weight):
+- Correct prediction with high confidence (≥0.85): +0.4
+- Correct prediction with moderate confidence (0.65-0.85): +0.3
+- Correct prediction with low confidence (0.5-0.65): +0.15
+- Incorrect prediction with high confidence: -0.2 (overconfidence penalty)
+- Incorrect prediction with moderate confidence: -0.1
+
+**Bonuses**:
+- Well-calibrated confidence (within ±0.1 of target): +0.15 bonus
+
+### Code Review Reward Structure
+
+**Issue Detection** (50% weight):
+- Perfect detection (all issues found, no false positives): +0.5 (+0.1 bonus for 2+ issues)
+- Partial credit: 0.5 × (overlap / total_unique_issues)
+- Missed critical security issue: -0.15 penalty
+- False positives: -0.05 per false positive (capped at -0.1)
+- Missed all issues: -0.2 penalty
+
+**Severity Assessment** (50% weight):
+- Correct severity: +0.5 (+0.1 bonus if critical severity is correct)
+- Severity off by 1 level: +0.25
+- Severity off by 2+ levels: -0.2 penalty
+
+### Support Routing Reward Structure
+
+**Department Routing** (38% base):
+- Correct department: +0.38
+- Wrong department: -0.25 penalty
+- Missed escalation case (critical): -0.15 severe penalty
+- VIP correctly escalated: +0.08 bonus
+
+**Priority Assessment** (22% base):
+- Correct priority: +0.22
+- Priority off by 1 level: +0.11
+- Wrong priority: -0.15 penalty
+- Critical urgency prioritized correctly: +0.08 bonus
+
+**Response Type** (22% base):
+- Correct response type: +0.22
+- Wrong response type: -0.12 penalty
+
+**Tone Appropriateness** (18% base):
+- Correct tone: +0.18
+- Empathetic for frustrated customer: +0.1 bonus
+- No empathy for angry customer: -0.15 penalty
+- Wrong tone for VIP premium: -0.12 penalty
+
+### Penalty and Bonus System
+
+**Automatic Penalties** (applied on top of grading):
+- Missing required action keys: -0.2 per missing key (capped at -0.5)
+- Unexpected action keys: -0.05 per unexpected key (capped at -0.2)
+
+**Explanation Breakdown** (in step info):
+Each step's `info["explanation_breakdown"]` includes:
+- `score_components`: Dict of each component's contribution
+- `penalties_applied`: List of penalty names and values
+- `bonuses_applied`: List of bonus names and values
+- `detailed_reasoning`: Full text explanation of the score
+
 ## Validation
 
 If OpenEnv CLI is installed:
