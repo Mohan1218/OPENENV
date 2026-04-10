@@ -13,6 +13,48 @@ This environment simulates real operational tasks (not games):
 
 The design targets agent benchmarking with reproducible scoring and clear progression from easy to hard scenarios.
 
+## 🎯 Why This Is Different
+
+This is not just another task environment. It's designed as a **production-level adaptive evaluation system** with three key differentiators:
+
+### 1️⃣ Adaptive Difficulty (Dynamic Challenge)
+
+**Traditional**: Fixed sequence of tasks. Agent either breezes through or gets stuck.
+
+**This System**: 
+- Automatically skips to harder scenarios when agent performs well (reward > 0.7)
+- Prevents boredom for high-performing agents
+- Creates smooth difficulty curves matching agent capability
+- Result: **Agents are always challenged at their level**
+
+### 2️⃣ Sequential Learning (Multi-Step Memory)
+
+**Traditional**: Each task is independent. No memory of previous decisions.
+
+**This System**:
+- Agents see conversation history across steps
+- Track action sequence within episodes
+- Build on previous context for multi-turn decisions
+- Result: **Agents learn to reason sequentially, not just react**
+
+### 3️⃣ Real-World Risk Modeling (Safety-Aware Scoring)
+
+**Traditional**: Simple correctness scoring. No concept of consequences.
+
+**This System**:
+- **Risk awareness**: -0.3 penalty for missing escalations on critical issues
+- **Cost penalty**: -0.05 for unnecessary escalations (efficiency matters)
+- **Time decay**: 0.02 per step discourages lengthy conversations
+- **Context-aware decisions**: Scoring adapts to situation risk level
+- Result: **Agents learn that some mistakes are worse than others**
+
+### 🔒 Safety & Robustness
+
+- **Exception handling**: All errors caught gracefully, never crashes
+- **Type enforcement**: All returns validated (obs, reward, done, info)
+- **Production-ready**: Error tracking with traceback details
+- Result: **Environment is stable and production-ready**
+
 ## Tasks and Difficulty
 
 ### 1) Email Classification (Easy)
