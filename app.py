@@ -4,7 +4,9 @@ Provides REST API for the OpenEnv environment
 """
 from pydantic import BaseModel
 from typing import List, Optional, Any
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from env.environment import SupportEnv, create_env
 from env.tasks import get_tasks
 from env.grader import compute_score
@@ -15,6 +17,20 @@ app = FastAPI(
     description="Real-world task simulation environment",
     version="1.0.0"
 )
+
+# Global exception handler for validation errors (safe fallback)
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Graceful fallback for validation errors"""
+    return JSONResponse(
+        status_code=200,
+        content={
+            "next_state": {},
+            "reward": 0.0,
+            "done": True,
+            "info": {"error": "validation_error", "safe_fallback": True}
+        },
+    )
 
 # Global environment instance
 current_env = None
