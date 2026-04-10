@@ -15,12 +15,14 @@ API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:7860")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Initialize OpenAI client
-if not API_KEY:
-    print("[ERROR] OPENAI_API_KEY not set", file=sys.stderr)
-    sys.exit(1)
-
-client = OpenAI(api_key=API_KEY)
+# Initialize OpenAI client (optional - will fallback if not available)
+client = None
+if API_KEY:
+    try:
+        client = OpenAI(api_key=API_KEY)
+    except Exception:
+        print("[WARNING] Could not initialize OpenAI client", file=sys.stderr)
+        client = None
 
 # =========================
 # GET ACTION FROM LLM
@@ -66,6 +68,10 @@ Return ONLY valid JSON:
 {{"department": "billing|tech_support|general_support|escalation", "priority": "low|medium|high|urgent", "response_type": "auto_reply|human_review|escalate", "tone": "empathetic|formal|urgent|casual"}}"""
     
     try:
+        # Use OpenAI if available, otherwise return fallback
+        if not client:
+            raise Exception("OpenAI client not available")
+            
         response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}],

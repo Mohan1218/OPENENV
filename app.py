@@ -93,7 +93,7 @@ def init_environment(task_id: str = "support_routing", difficulty: str = "easy")
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.get("/reset")
+@app.api_route("/reset", methods=["GET", "POST"])
 def reset():
     """Reset environment to initial state"""
     global current_env
