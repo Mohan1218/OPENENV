@@ -17,7 +17,8 @@ SUPPORT_ROUTING_EASY_DATA = [
         "correct_response_type": "human_review",
         "correct_tone": "empathetic",
         "difficulty": "easy",
-        "urgency": "high"
+        "urgency": "high",
+        "risk": "low"
     },
     {
         "ticket_subject": "Application keeps crashing on login",
@@ -33,7 +34,8 @@ SUPPORT_ROUTING_EASY_DATA = [
         "correct_response_type": "human_review",
         "correct_tone": "urgent",
         "difficulty": "easy",
-        "urgency": "critical"
+        "urgency": "critical",
+        "risk": "low"
     },
     {
         "ticket_subject": "General inquiry about features",
@@ -49,7 +51,8 @@ SUPPORT_ROUTING_EASY_DATA = [
         "correct_response_type": "auto_reply",
         "correct_tone": "formal",
         "difficulty": "easy",
-        "urgency": "low"
+        "urgency": "low",
+        "risk": "low"
     },
 ]
 
@@ -68,7 +71,8 @@ SUPPORT_ROUTING_MEDIUM_DATA = [
         "correct_response_type": "escalate",
         "correct_tone": "empathetic",
         "difficulty": "medium",
-        "urgency": "critical"
+        "urgency": "critical",
+        "risk": "medium"
     },
     {
         "ticket_subject": "Password reset not working",
@@ -84,7 +88,8 @@ SUPPORT_ROUTING_MEDIUM_DATA = [
         "correct_response_type": "human_review",
         "correct_tone": "empathetic",
         "difficulty": "medium",
-        "urgency": "high"
+        "urgency": "high",
+        "risk": "medium"
     },
     {
         "ticket_subject": "Wrong item received - need immediate solution",
@@ -100,7 +105,8 @@ SUPPORT_ROUTING_MEDIUM_DATA = [
         "correct_response_type": "human_review",
         "correct_tone": "formal",
         "difficulty": "medium",
-        "urgency": "high"
+        "urgency": "high",
+        "risk": "medium"
     },
 ]
 
@@ -120,6 +126,7 @@ SUPPORT_ROUTING_HARD_DATA = [
         "correct_tone": "urgent",
         "difficulty": "hard",
         "urgency": "critical",
+        "risk": "critical",
         "note": "VIP + Security + Multiple previous contacts = Escalate immediately"
     },
     {
@@ -137,6 +144,7 @@ SUPPORT_ROUTING_HARD_DATA = [
         "correct_tone": "empathetic",
         "difficulty": "hard",
         "urgency": "critical",
+        "risk": "critical",
         "note": "Multiple issues + multiple contacts + high frustration = Needs escalation"
     },
     {
@@ -154,6 +162,7 @@ SUPPORT_ROUTING_HARD_DATA = [
         "correct_tone": "formal",
         "difficulty": "hard",
         "urgency": "high",
+        "risk": "critical",
         "note": "Enterprise deal = Route to sales/escalation team"
     },
     {
@@ -171,6 +180,7 @@ SUPPORT_ROUTING_HARD_DATA = [
         "correct_tone": "formal",
         "difficulty": "hard",
         "urgency": "critical",
+        "risk": "critical",
         "note": "Production issue + technical complexity = Immediate human review"
     },
 ]

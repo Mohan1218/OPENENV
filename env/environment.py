@@ -32,6 +32,8 @@ class BaseTaskEnv:
         self.data: List[Dict[str, Any]] = self._load_data()
         self.index = 0
         self.total_score = 0.0
+        self.history: List[str] = []  # Multi-step memory
+        self.step_count = 0  # For time decay penalty
 
     def _load_data(self) -> List[Dict[str, Any]]:
         raise NotImplementedError
@@ -39,6 +41,8 @@ class BaseTaskEnv:
     def reset(self) -> Dict[str, Any]:
         self.index = 0
         self.total_score = 0.0
+        self.history = []  # Clear conversation history
+        self.step_count = 0  # Reset step counter
         return self.state()
 
     def state(self) -> Dict[str, Any]:
@@ -50,6 +54,11 @@ class BaseTaskEnv:
         obs["task_id"] = self.task_id
         obs["step"] = self.index
         obs["episode_length"] = len(self.data)
+        
+        # Add multi-step memory: agent sees previous actions in conversation
+        if self.history:
+            obs["conversation_history"] = self.history.copy()
+        
         return obs
 
     def _build_observation(self, item: Dict[str, Any]) -> Dict[str, Any]:
@@ -123,8 +132,44 @@ class BaseTaskEnv:
             grade["reasoning"] = f"{grade.get('reasoning', '')} | penalty: {'; '.join(details)}".strip()
             grade["score"] = reward
 
+        # ===== PRODUCTION-LEVEL UPGRADES =====
+        
+        # RISK AWARENESS: Penalize missing escalations for critical issues
+        risk_level = current.get("risk", "low")
+        if risk_level == "critical":
+            if action.get("response_type") != "escalate":
+                reward = max(0.0, reward - 0.3)
+                grade["reasoning"] = f"{grade.get('reasoning', '')} | CRITICAL_RISK_NO_ESCALATION (-0.3)".strip()
+        elif risk_level == "medium":
+            if action.get("response_type") != "escalate" and action.get("priority") != "urgent":
+                reward = max(0.0, reward - 0.15)
+        
+        # COST PENALTY: Avoid unnecessary escalations
+        if action.get("response_type") == "escalate" and risk_level == "low":
+            reward = max(0.0, reward - 0.05)
+            grade["reasoning"] = f"{grade.get('reasoning', '')} | UNNECESSARY_ESCALATION (-0.05)".strip()
+        
+        # TIME DECAY: Penalty increases with each step (discourage long conversations)
+        time_penalty = 0.02 * self.step_count
+        reward = max(0.0, reward - time_penalty)
+        if time_penalty > 0:
+            grade["reasoning"] = f"{grade.get('reasoning', '')} | TIME_DECAY (-{time_penalty:.3f})".strip()
+        
+        # Final reward clamp to [0, 1]
+        reward = max(0.0, min(1.0, reward))
+
         self.total_score += reward
-        self.index += 1
+        
+        # Track action in conversation history (multi-step memory)
+        self.history.append(f"Action: {action}")
+        self.step_count += 1
+        
+        # DYNAMIC DIFFICULTY: Adapt based on performance
+        # Skip harder scenarios if performing well; otherwise proceed normally
+        if reward > 0.7 and self.index < len(self.data) - 2:
+            self.index += 2  # Skip to harder scenarios
+        else:
+            self.index += 1  # Normal progression
 
         done = self.index >= len(self.data)
         next_obs = {} if done else self.state()
@@ -145,6 +190,11 @@ class BaseTaskEnv:
             "total_score": self.total_score,
             "grade": grade,
             "explanation_breakdown": explanation_breakdown,
+            # Production-level features
+            "history_length": len(self.history),
+            "difficulty_adapted": reward < 0.3 or reward > 0.7,
+            "risk_level": risk_level,
+            "time_decay_applied": time_penalty > 0,
         }
 
 
