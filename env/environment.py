@@ -2,21 +2,178 @@ from enum import Enum
 from typing import Any, Dict, List, Tuple
 
 from env.grader import compute_score
-from env.task_data_code_review_upgraded import (
-    CODE_REVIEW_EASY_DATA,
-    CODE_REVIEW_HARD_DATA,
-    CODE_REVIEW_MEDIUM_DATA,
-)
-from env.task_data_email_upgraded import (
-    EMAIL_CLASSIFICATION_EASY_DATA,
-    EMAIL_CLASSIFICATION_HARD_DATA,
-    EMAIL_CLASSIFICATION_MEDIUM_DATA,
-)
-from env.task_data_support_upgraded import (
-    SUPPORT_ROUTING_EASY_DATA,
-    SUPPORT_ROUTING_HARD_DATA,
-    SUPPORT_ROUTING_MEDIUM_DATA,
-)
+
+# Embedded task data - Email Classification
+EMAIL_CLASSIFICATION_EASY_DATA = [
+    {
+        "email_subject": "Meeting tomorrow",
+        "email_body": "Reminder about tomorrow's meeting at 10am",
+        "sender_domain": "company.com",
+        "has_links": False,
+        "has_attachments": True,
+        "word_count": 8,
+        "correct_classification": "important",
+        "risk": "low"
+    },
+    {
+        "email_subject": "50% OFF NOW!",
+        "email_body": "Limited time offer, click here to buy now",
+        "sender_domain": "shop.com",
+        "has_links": True,
+        "has_attachments": False,
+        "word_count": 10,
+        "correct_classification": "promotional",
+        "risk": "low"
+    },
+    {
+        "email_subject": "Update your password",
+        "email_body": "Click verify account now!",
+        "sender_domain": "unknown.com",
+        "has_links": True,
+        "has_attachments": False,
+        "word_count": 5,
+        "correct_classification": "spam",
+        "risk": "high"
+    },
+]
+
+EMAIL_CLASSIFICATION_MEDIUM_DATA = [
+    {
+        "email_subject": "Q3 Performance Review",
+        "email_body": "Your Q3 metrics are ready. Review confidential. Attached PDF.",
+        "sender_domain": "company.com",
+        "has_links": False,
+        "has_attachments": True,
+        "word_count": 11,
+        "correct_classification": "important",
+        "risk": "medium"
+    },
+    {
+        "email_subject": "You've won a prize!",
+        "email_body": "Congratulations! claim your reward now",
+        "sender_domain": "ads.com",
+        "has_links": True,
+        "has_attachments": False,
+        "word_count": 6,
+        "correct_classification": "spam",
+        "risk": "critical"
+    },
+]
+
+EMAIL_CLASSIFICATION_HARD_DATA = [
+    {
+        "email_subject": "Project Update",
+        "email_body": "Status update on current initiatives and deadlines",
+        "sender_domain": "company.com",
+        "has_links": False,
+        "has_attachments": True,
+        "word_count": 8,
+        "correct_classification": "important",
+        "risk": "medium"
+    },
+]
+
+# Code Review data
+CODE_REVIEW_EASY_DATA = [
+    {
+        "code_snippet": "password = input()",
+        "language": "python",
+        "context": "User authentication function",
+        "function_name": "login",
+        "lines_of_code": 1,
+        "correct_issues": ["security"],
+        "correct_severity": "critical",
+        "risk": "critical"
+    },
+]
+
+CODE_REVIEW_MEDIUM_DATA = [
+    {
+        "code_snippet": "x=1;y=2",
+        "language": "python",
+        "context": "Variable initialization",
+        "function_name": "init",
+        "lines_of_code": 1,
+        "correct_issues": ["style"],
+        "correct_severity": "minor",
+        "risk": "low"
+    },
+]
+
+CODE_REVIEW_HARD_DATA = [
+    {
+        "code_snippet": "data = eval(user_input)",
+        "language": "python",
+        "context": "Data processing function",
+        "function_name": "process",
+        "lines_of_code": 1,
+        "correct_issues": ["security", "logic"],
+        "correct_severity": "critical",
+        "risk": "critical"
+    },
+]
+
+# Support Routing data
+SUPPORT_ROUTING_EASY_DATA = [
+    {
+        "ticket_subject": "Billing issue",
+        "ticket_description": "My credit card was charged twice",
+        "customer_type": "standard",
+        "sentiment": "frustrated",
+        "issue_category": "billing",
+        "previous_interactions": 0,
+        "account_age_days": 180,
+        "is_vip": False,
+        "correct_dept": "billing",
+        "correct_priority": "high",
+        "risk": "medium"
+    },
+    {
+        "ticket_subject": "Password reset",
+        "ticket_description": "How do I reset my password?",
+        "customer_type": "free",
+        "sentiment": "neutral",
+        "issue_category": "general",
+        "previous_interactions": 1,
+        "account_age_days": 30,
+        "is_vip": False,
+        "correct_dept": "general_support",
+        "correct_priority": "medium",
+        "risk": "low"
+    },
+]
+
+SUPPORT_ROUTING_MEDIUM_DATA = [
+    {
+        "ticket_subject": "Technical issue",
+        "ticket_description": "App crashes when uploading files",
+        "customer_type": "premium",
+        "sentiment": "frustrated",
+        "issue_category": "technical",
+        "previous_interactions": 3,
+        "account_age_days": 365,
+        "is_vip": True,
+        "correct_dept": "tech_support",
+        "correct_priority": "high",
+        "risk": "medium"
+    },
+]
+
+SUPPORT_ROUTING_HARD_DATA = [
+    {
+        "ticket_subject": "Critical issue",
+        "ticket_description": "Server down, lost customer data",
+        "customer_type": "premium",
+        "sentiment": "angry",
+        "issue_category": "technical",
+        "previous_interactions": 10,
+        "account_age_days": 730,
+        "is_vip": True,
+        "correct_dept": "escalation",
+        "correct_priority": "urgent",
+        "risk": "critical"
+    },
+]
 
 
 class TaskDifficulty(str, Enum):
