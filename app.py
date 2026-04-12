@@ -78,8 +78,8 @@ def home():
 
 @app.post("/reset")
 @app.get("/reset")
-async def reset(request: Request = None):
-    """Reset endpoint - accepts POST and GET, ignores body"""
+def reset():
+    """Reset endpoint - accepts POST and GET, NO body required"""
     global current_env
     try:
         if current_env is None:
