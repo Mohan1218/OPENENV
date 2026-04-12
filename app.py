@@ -5,46 +5,47 @@ Provides REST API for the OpenEnv environment
 from pydantic import BaseModel
 from typing import List, Optional, Any
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.applications import Starlette
+from starlette.routing import Route
 from starlette.responses import JSONResponse as StarletteJSONResponse
 from env.environment import SupportEnv, create_env
 from env.tasks import get_tasks
 from env.grader import compute_score
 from baseline.run import run_baseline_inference, run_all_tasks_baseline
 
+# Global environment instance
+current_env = None
+current_task_id = "support_routing"
+current_difficulty = "easy"
+
+# ============= RESET HANDLER (COMPLETELY OUTSIDE FASTAPI) =============
+async def reset_handler(request):
+    """Raw Starlette handler - bypasses ALL FastAPI validation"""
+    global current_env
+    try:
+        if current_env is None:
+            current_env = create_env(current_task_id, current_difficulty)
+        obs = current_env.reset()
+        result = obs or {"conversation": [], "customer_type": "free", "sentiment": "neutral", "time": "low"}
+        return StarletteJSONResponse(result)
+    except Exception as e:
+        return StarletteJSONResponse({"conversation": ["fallback"], "customer_type": "free", "sentiment": "neutral", "time": "low"})
+
+# Create mini Starlette app for /reset
+reset_app = Starlette(routes=[
+    Route("/", reset_handler, methods=["POST", "GET"]),
+])
+
+# Main FastAPI app
 app = FastAPI(
     title="OpenEnv API",
     description="Real-world task simulation environment",
     version="1.0.0"
 )
 
-# Global environment instance
-current_env = None
-current_task_id = "support_routing"
-current_difficulty = "easy"
-
-
-# ============= MIDDLEWARE TO BYPASS VALIDATION FOR /reset =============
-class ResetBypassMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        # Intercept /reset before FastAPI validation
-        if request.url.path == "/reset" and request.method in ["POST", "GET"]:
-            global current_env
-            try:
-                if current_env is None:
-                    current_env = create_env(current_task_id, current_difficulty)
-                obs = current_env.reset()
-                result = obs or {"conversation": [], "customer_type": "free", "sentiment": "neutral", "time": "low"}
-                return StarletteJSONResponse(result)
-            except Exception as e:
-                return StarletteJSONResponse({"conversation": ["fallback"], "customer_type": "free", "sentiment": "neutral", "time": "low"})
-        
-        return await call_next(request)
-
-# Add middleware FIRST (runs before routing)
-app.add_middleware(ResetBypassMiddleware)
+# Mount /reset outside FastAPI (complete bypass of validation)
+app.mount("/reset", reset_app)
 
 
 class ActionRequest(BaseModel):
