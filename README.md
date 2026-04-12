@@ -1,3 +1,13 @@
+---
+title: OPENENV
+emoji: 🌍
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # 🌍 OpenEnv: Production-Ready Real-World Tasks Environment
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square)](https://www.python.org/)
