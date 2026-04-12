@@ -123,10 +123,13 @@ def state():
 
 
 @app.post("/step")
-def step(action: ActionRequest):
+def step(action: Optional[ActionRequest] = None):
     """Execute action in environment"""
     global current_env, current_task_id, current_difficulty
     try:
+        if action is None:
+            action = ActionRequest(data={})
+        
         if action.task_id != current_task_id or action.difficulty != current_difficulty:
             current_env = create_env(action.task_id, action.difficulty)
             current_task_id = action.task_id
@@ -153,9 +156,11 @@ def step(action: ActionRequest):
 
 
 @app.post("/grader")
-def grader(data: GraderRequest):
+def grader(data: Optional[GraderRequest] = None):
     """Grade predicted output vs correct output"""
     try:
+        if data is None:
+            return {"reward": 0.0, "status": "error", "message": "No grader data provided"}
         reward = compute_score(data.task_id, data.predicted, data.correct)
         return {"task_id": data.task_id, "reward": float(reward), "status": "success"}
     except Exception as e:
@@ -180,8 +185,10 @@ def baseline_all():
 
 
 @app.post("/step-legacy")
-def step_legacy(action: dict):
+def step_legacy(action: Optional[dict] = None):
     """Legacy step endpoint for backward compatibility"""
+    if action is None:
+        action = {}
     request_obj = ActionRequest(data=action)
     return step(request_obj)
 
