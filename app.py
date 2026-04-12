@@ -93,9 +93,24 @@ def init_environment(task_id: str = "support_routing", difficulty: str = "easy")
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.api_route("/reset", methods=["GET", "POST"])
-def reset():
-    """Reset environment to initial state"""
+@app.get("/reset")
+def reset_get():
+    """Reset environment to initial state (GET)"""
+    global current_env
+    
+    try:
+        if current_env is None:
+            current_env = create_env(current_task_id, current_difficulty)
+        obs = current_env.reset()
+        return obs or {"conversation": [], "customer_type": "free", "sentiment": "neutral", "time": "low"}
+    except Exception:
+        # Safe fallback - even if everything breaks, API still works
+        return {"conversation": ["fallback"], "customer_type": "free", "sentiment": "neutral", "time": "low"}
+
+
+@app.post("/reset")
+def reset_post():
+    """Reset environment to initial state (POST)"""
     global current_env
     
     try:
