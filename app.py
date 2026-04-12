@@ -4,10 +4,10 @@ Provides REST API for the OpenEnv environment
 """
 from pydantic import BaseModel
 from typing import List, Optional, Any
-from fastapi import FastAPI, HTTPException, Request, Body
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from starlette.routing import Route
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse as StarletteJSONResponse
 from env.environment import SupportEnv, create_env
 from env.tasks import get_tasks
@@ -20,24 +20,31 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Global exception handler for validation errors (safe fallback)
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Graceful fallback for validation errors"""
-    return JSONResponse(
-        status_code=200,
-        content={
-            "next_state": {},
-            "reward": 0.0,
-            "done": True,
-            "info": {"error": "validation_error", "safe_fallback": True}
-        },
-    )
-
 # Global environment instance
 current_env = None
 current_task_id = "support_routing"
 current_difficulty = "easy"
+
+
+# ============= MIDDLEWARE TO BYPASS VALIDATION FOR /reset =============
+class ResetBypassMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Intercept /reset before FastAPI validation
+        if request.url.path == "/reset" and request.method in ["POST", "GET"]:
+            global current_env
+            try:
+                if current_env is None:
+                    current_env = create_env(current_task_id, current_difficulty)
+                obs = current_env.reset()
+                result = obs or {"conversation": [], "customer_type": "free", "sentiment": "neutral", "time": "low"}
+                return StarletteJSONResponse(result)
+            except Exception as e:
+                return StarletteJSONResponse({"conversation": ["fallback"], "customer_type": "free", "sentiment": "neutral", "time": "low"})
+        
+        return await call_next(request)
+
+# Add middleware FIRST (runs before routing)
+app.add_middleware(ResetBypassMiddleware)
 
 
 class ActionRequest(BaseModel):
@@ -93,23 +100,6 @@ def init_environment(task_id: str = "support_routing", difficulty: str = "easy")
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-async def reset_handler(request):
-    """Reset environment - completely bypasses FastAPI/Pydantic validation"""
-    global current_env
-    
-    try:
-        if current_env is None:
-            current_env = create_env(current_task_id, current_difficulty)
-        obs = current_env.reset()
-        result = obs or {"conversation": [], "customer_type": "free", "sentiment": "neutral", "time": "low"}
-        return StarletteJSONResponse(result)
-    except Exception as e:
-        return StarletteJSONResponse({"conversation": ["fallback"], "customer_type": "free", "sentiment": "neutral", "time": "low"})
-
-# Register raw Starlette route (bypasses FastAPI/Pydantic validation entirely)
-app.routes.append(Route("/reset", reset_handler, methods=["POST", "GET"]))
 
 
 @app.get("/state")
