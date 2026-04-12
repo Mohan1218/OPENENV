@@ -23,5 +23,5 @@ EXPOSE 7860
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:7860')" || exit 1
 
-# Run the Gradio application
-CMD ["python", "app_gradio.py"]
+# Run the FastAPI + Gradio application
+CMD ["python", "app.py"]
