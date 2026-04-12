@@ -4,7 +4,7 @@ Provides REST API for the OpenEnv environment
 """
 from pydantic import BaseModel
 from typing import List, Optional, Any
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Body
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from env.environment import SupportEnv, create_env
@@ -108,9 +108,9 @@ def reset_get():
         return {"conversation": ["fallback"], "customer_type": "free", "sentiment": "neutral", "time": "low"}
 
 
-@app.post("/reset")
-def reset_post():
-    """Reset environment to initial state (POST)"""
+@app.post("/reset", response_model=dict)
+async def reset_post(request: Request):
+    """Reset environment to initial state (POST) - accepts any body or no body"""
     global current_env
     
     try:
