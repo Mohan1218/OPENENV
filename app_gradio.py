@@ -1,7 +1,14 @@
-import gradio as gr
+#!/usr/bin/env python3
 import json
-import os
 import sys
+
+try:
+    import gradio as gr
+except ImportError:
+    print("Gradio not installed, installing...")
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "gradio"])
+    import gradio as gr
 
 def email_classifier(subject, body):
     """Email Classification Task"""
@@ -56,39 +63,19 @@ def support_router(description, customer_type, sentiment):
     return json.dumps(result, indent=2)
 
 # Create Gradio Interface
-with gr.Blocks(title="OPENENV", theme=gr.themes.Soft()) as demo:
-    gr.Markdown("""
-    # 🌍 OPENENV - AI Agent Environment
-    
-    An interactive environment for testing AI agents on multiple real-world tasks.
-    Select a task below and test the AI agent's performance.
-    """)
+with gr.Blocks() as demo:
+    gr.Markdown("# 🌍 OPENENV - AI Agent Environment")
+    gr.Markdown("An interactive environment for testing AI agents on real-world tasks.")
     
     with gr.Tabs():
-        # ========== EMAIL CLASSIFICATION ==========
+        # Email Classification
         with gr.TabItem("📧 Email Classification"):
-            gr.Markdown("### Classify emails as important, spam, or promotional")
+            gr.Markdown("Classify emails as important, spam, or promotional")
             
-            with gr.Row():
-                with gr.Column():
-                    email_subject = gr.Textbox(
-                        label="📝 Email Subject",
-                        placeholder="e.g., Urgent: Project deadline extended",
-                        lines=1
-                    )
-                    email_body = gr.Textbox(
-                        label="📄 Email Body",
-                        placeholder="Enter the email content here...",
-                        lines=6
-                    )
-                    email_btn = gr.Button("🔍 Classify Email", size="lg", variant="primary")
-                
-                with gr.Column():
-                    email_output = gr.Textbox(
-                        label="📊 Classification Result",
-                        lines=8,
-                        interactive=False
-                    )
+            email_subject = gr.Textbox(label="Email Subject", placeholder="Enter subject...")
+            email_body = gr.Textbox(label="Email Body", placeholder="Enter body...", lines=4)
+            email_btn = gr.Button("Classify Email")
+            email_output = gr.Textbox(label="Result", lines=5)
             
             email_btn.click(
                 fn=email_classifier,
@@ -96,25 +83,13 @@ with gr.Blocks(title="OPENENV", theme=gr.themes.Soft()) as demo:
                 outputs=email_output
             )
         
-        # ========== CODE REVIEW ==========
+        # Code Review
         with gr.TabItem("💻 Code Review"):
-            gr.Markdown("### Get AI-powered code reviews and suggestions")
+            gr.Markdown("Get AI-powered code reviews and suggestions")
             
-            with gr.Row():
-                with gr.Column():
-                    code_input = gr.Textbox(
-                        label="📄 Code Snippet",
-                        placeholder="Paste your Python/JavaScript code here...",
-                        lines=10
-                    )
-                    code_btn = gr.Button("🔍 Review Code", size="lg", variant="primary")
-                
-                with gr.Column():
-                    code_output = gr.Textbox(
-                        label="📊 Review Results",
-                        lines=10,
-                        interactive=False
-                    )
+            code_input = gr.Textbox(label="Code Snippet", placeholder="Paste code...", lines=8)
+            code_btn = gr.Button("Review Code")
+            code_output = gr.Textbox(label="Review Result", lines=5)
             
             code_btn.click(
                 fn=code_reviewer,
@@ -122,35 +97,15 @@ with gr.Blocks(title="OPENENV", theme=gr.themes.Soft()) as demo:
                 outputs=code_output
             )
         
-        # ========== SUPPORT ROUTING ==========
+        # Support Routing
         with gr.TabItem("🎯 Support Routing"):
-            gr.Markdown("### Route support tickets to the right team")
+            gr.Markdown("Route support tickets to the right team")
             
-            with gr.Row():
-                with gr.Column():
-                    support_desc = gr.Textbox(
-                        label="📝 Ticket Description",
-                        placeholder="Describe the customer issue...",
-                        lines=6
-                    )
-                    customer_type = gr.Dropdown(
-                        choices=["Individual", "Business", "Enterprise"],
-                        label="👤 Customer Type",
-                        value="Individual"
-                    )
-                    sentiment = gr.Dropdown(
-                        choices=["Positive", "Neutral", "Negative"],
-                        label="😊 Sentiment",
-                        value="Neutral"
-                    )
-                    support_btn = gr.Button("🔍 Route Ticket", size="lg", variant="primary")
-                
-                with gr.Column():
-                    support_output = gr.Textbox(
-                        label="📊 Routing Decision",
-                        lines=8,
-                        interactive=False
-                    )
+            support_desc = gr.Textbox(label="Ticket Description", placeholder="Describe issue...", lines=4)
+            customer_type = gr.Dropdown(choices=["Individual", "Business", "Enterprise"], label="Customer Type")
+            sentiment = gr.Dropdown(choices=["Positive", "Neutral", "Negative"], label="Sentiment")
+            support_btn = gr.Button("Route Ticket")
+            support_output = gr.Textbox(label="Routing Decision", lines=5)
             
             support_btn.click(
                 fn=support_router,
@@ -158,26 +113,19 @@ with gr.Blocks(title="OPENENV", theme=gr.themes.Soft()) as demo:
                 outputs=support_output
             )
         
-        # ========== ABOUT ==========
+        # About
         with gr.TabItem("ℹ️ About"):
             gr.Markdown("""
             ## About OPENENV
             
-            OPENENV is an open-source environment for training and evaluating AI agents on real-world tasks.
+            OPENENV is an open-source environment for AI agent evaluation.
             
-            ### Features:
-            - 📧 **Email Classification** - Classify emails intelligently
-            - 💻 **Code Review** - AI-powered code analysis
-            - 🎯 **Support Routing** - Smart ticket routing
+            **Features:**
+            - Email Classification
+            - Code Review Analysis
+            - Support Ticket Routing
             
-            ### Links:
-            - 🔗 [GitHub Repository](https://github.com/Mohan1218/OPENENV)
-            - 📚 [Documentation](https://github.com/Mohan1218/OPENENV/blob/main/README.md)
-            
-            ### Performance Metrics:
-            - Email Classification Accuracy: 94%
-            - Code Review Coverage: 87%
-            - Support Routing Success: 91%
+            [GitHub](https://github.com/Mohan1218/OPENENV)
             """)
 
 if __name__ == "__main__":
