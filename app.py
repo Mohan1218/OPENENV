@@ -6,18 +6,24 @@ from pydantic import BaseModel
 from typing import List, Optional, Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from starlette.routing import Route
+from starlette.applications import Starlette
+from starlette.routing import Route, Mount
 from starlette.responses import JSONResponse as StarletteJSONResponse
 from env.environment import SupportEnv, create_env
 from env.tasks import get_tasks
 from env.grader import compute_score
 from baseline.run import run_baseline_inference, run_all_tasks_baseline
+import json
 
-app = FastAPI(
+# Create FastAPI app
+fastapi_app = FastAPI(
     title="OpenEnv API",
     description="Real-world task simulation environment",
     version="1.0.0"
 )
+
+# Alias for code compatibility
+app = fastapi_app
 
 # Global environment instance
 current_env = None
@@ -56,18 +62,20 @@ def home():
     }
 
 
-# ============= CRITICAL: /reset endpoint - PURE STARLETTE ASGI to bypass FastAPI validation =============
+# ============= PURE ASGI WRAPPER: INTERCEPTS /reset BEFORE FastAPI VALIDATION =============
 async def reset_asgi(scope, receive, send):
-    """Pure ASGI endpoint that bypasses FastAPI validation entirely"""
+    """Pure ASGI handler - bypasses FastAPI/Pydantic completely"""
     global current_env
-    import json
+    
+    if scope["type"] != "http":
+        return
     
     try:
         if current_env is None:
             current_env = create_env(current_task_id, current_difficulty)
         obs = current_env.reset()
         response_data = obs or {"conversation": [], "customer_type": "free", "sentiment": "neutral", "time": "low"}
-    except Exception:
+    except Exception as e:
         response_data = {"conversation": ["fallback"], "customer_type": "free", "sentiment": "neutral", "time": "low"}
     
     response_body = json.dumps(response_data).encode('utf-8')
@@ -82,8 +90,18 @@ async def reset_asgi(scope, receive, send):
         'body': response_body,
     })
 
-# Register /reset as pure ASGI route (bypasses ALL FastAPI/Pydantic validation)
-app.router.routes.append(Route("/reset", reset_asgi, methods=["POST", "GET"]))
+# ============= WRAPPER: Routes /reset to ASGI, everything else to FastAPI =============
+async def app(scope, receive, send):
+    """
+    ASGI app that intercepts /reset at the HTTP protocol level 
+    BEFORE it reaches FastAPI validation
+    """
+    if scope["type"] == "http" and scope["path"] == "/reset":
+        # Route to pure ASGI handler - NO Pydantic
+        await reset_asgi(scope, receive, send)
+    else:
+        # Route all other paths to FastAPI
+        await fastapi_app(scope, receive, send)
 
 
 @app.get("/tasks")
